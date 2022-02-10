@@ -1,6 +1,6 @@
 conda deactivate
 cd ~;
-git clone https://github.com/redwoodresearch/mlab
+git clone https://github.com/tamera-lanham/mlab.git
 cd mlab
 git reset --hard HEAD
 git pull
