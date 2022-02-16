@@ -1,6 +1,6 @@
 conda deactivate
 cd ~;
-git clone https://github.com/tamera-lanham/mlab.git
+git clone git@github.com:tamera-lanham/mlab.git
 cd mlab
 git config user.email "tamera.lanham@gmail.com"
 git config user.name "Tamera Lanham"
