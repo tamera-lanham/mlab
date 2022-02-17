@@ -24,6 +24,8 @@ class _UnidirectionalAttention(nn.Module):
                 return_key_values=False):
         qkv = self.attn_lin(encodings)
         q, k, v = torch.split(qkv, self.hidden_size, dim=-1)
+        
+        # b: batch, n: seq_len, h: n_heads, l: head_size
         q = einops.rearrange(q, 'b n (h l) -> b h n l', h=self.n_heads)
         k = einops.rearrange(k, 'b n (h l) -> b h n l', h=self.n_heads)
         v = einops.rearrange(v, 'b n (h l) -> b h n l', h=self.n_heads)
@@ -50,7 +52,8 @@ class _UnidirectionalAttention(nn.Module):
         out = einops.rearrange(combined_v, 'b h n l -> b n (h l)')
         if return_key_values:
             return self.out_lin(out), new_key_values
-        return self.out_lin(out)
+        output = self.out_lin(out)
+        return output, qkv, k, q, v, attn_scores, attn_prob, combined_v
 
 
 class _GPT2Block(nn.Module):
