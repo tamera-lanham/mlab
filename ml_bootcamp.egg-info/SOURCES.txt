@@ -4826,9 +4826,11 @@ days/w2d2/bert_tao.py
 days/w2d2/bert_tests.py
 days/w2d2/template_w2d2.ipynb
 days/w2d2/w2d2.ipynb
+days/w2d3/Untitled.ipynb
 days/w2d3/_gpt_sol.py
 days/w2d3/gpt_sol.py
 days/w2d3/gpt_tests.py
+days/w2d3/w2d3_template.ipynb
 days/w2d4/bpe_tokens.json
 days/w2d4/demo_train.gin
 days/w2d4/demo_train.py
