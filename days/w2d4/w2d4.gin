@@ -1,0 +1,20 @@
+train.epochs = 5
+train.learning_rate = 0.001
+train.loss = "mse"
+
+MyModel.hidden_size = 16
+MyModel.input_size = 2
+MyModel.output_size = 2
+MyModel.n_layers = 2
+
+train.vocab_size: 28996,
+train.intermediate_size: 3072,
+train.hidden_size: 768,
+train.num_classes: 1,
+train.num_layers: 12,
+train.num_heads: 12,
+train.max_position_embeddings: 512,
+train.dropout: 0.1,
+train.type_vocab_size: 2,
+
+evaluate.validation_batch_size = 16
