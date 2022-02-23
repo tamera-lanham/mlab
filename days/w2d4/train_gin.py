@@ -55,7 +55,7 @@ def preprocess(data, batch_size, max_seq_len=512):
 
 
 ###### Model
-
+@gin.configurable
 class BertClassifier(nn.Module):
     def __init__(self, pretrained=True, **config):
         super(BertClassifier, self).__init__()
@@ -87,19 +87,21 @@ class BertClassifier(nn.Module):
 
 ###### Training
 
-
+@gin.configurable
 class GetData:
-    def __init__(self, batch_size=32):
+    def __init__(self, batch_size=32, n_epochs=1, batches_per_epoch=None):
         data_train, data_test = torchtext.datasets.IMDB(root='.data', split=('train', 'test'))
         self.data_train_list = list(data_train)
         self.data_test_list = list(data_test)
         
         self.batch_size = batch_size
+        self.n_epochs = n_epochs
+        self.batches_per_epoch = batches_per_epoch
         
         self.train = preprocess(self.data_train_list, batch_size)
         self.test = preprocess(self.data_test_list, batch_size)
-        
-    def get_data(self, n_epochs=1, batches_per_epoch=None):
+    
+    def get_data(self):
         
         def batch_generator(batched_data, n_epochs):
             for epoch in range(n_epochs):
@@ -107,8 +109,8 @@ class GetData:
                     yield i, batch
         
         def batches_tqdm():
-            batches = batch_generator(list(zip(self.train, self.test))[:batches_per_epoch], n_epochs)
-            return tqdm(batches, total = n_epochs * (batches_per_epoch if batches_per_epoch else len(self.train)))
+            batches = batch_generator(list(zip(self.train, self.test))[:self.batches_per_epoch], self.n_epochs)
+            return tqdm(batches, total = self.n_epochs * (self.batches_per_epoch if self.batches_per_epoch else len(self.train)))
 
         return batches_tqdm
     
@@ -120,6 +122,17 @@ mem = lambda: t.cuda.memory_allocated() / 2**(30)
 
 # Accuracy score
 acc = lambda outputs, targets: sum((outputs > 0.5).squeeze().int() == targets) / len(outputs) 
+
+@gin.configurable
+def train_gin(lr=1e-3, betas=(0.9, 0.999), epsilon=1e-8, weight_decay=0, device='cuda', val_batches=10):
+    
+    training_config = {
+        'optimizer_config': {'lr': lr, 'betas': betas, 'epsilon': epsilon, 'weight_decay': weight_decay},
+        'device': device,
+        'val_batches': val_batches
+    }
+    return lambda bert, data_generator: train(bert, data_generator, training_config)
+    
 
 def train(bert, data_generator, training_config):
     
@@ -182,19 +195,57 @@ def save(bert, filename=None):
     t.save(bert.state_dict(), filename)
     
 @gin.configurable
-def main(data_config={}, model_config={}, training_config={}, save_model=True):
+def main(experiment, save_model=True):
     
-    batch_size = data_config.get('batch_size')
-    if batch_size is not None: data_config.pop('batch_size')
-    get_data = GetData(batch_size) if batch_size else GetData()
-    data_gen = get_data.get_data(**data_config)
+    get_data = GetData()
+    data_gen = get_data.get_data()
     
-    bert = BertClassifier(**model_config)
+    bert = BertClassifier()
+    
+    train = train_gin() # for gin.config
     loss_vals, accs = train(bert, data_gen)
     
     if save_model: save(bert)
     
     return bert, loss_vals, accs
     
-    
 
+    
+    
+# # Class.x is how you say Class.__init__.x
+# _train.epochs = 10
+# _train.num_epochs = 30
+# _train.learning_rate = 0.01
+# _train.loss = "mse"
+# _train.hidden_size = 512
+# _train.momentum = 0.3
+# _train.n_layers = 1
+
+# @gin.configurable
+# def _train(epochs, num_epochs, learning_rate, momentum, loss, hidden_size, n_layers):
+#     n_epochs = num_epochs
+#     lr, momentum = learning_rate, momentum
+    
+#     hyper_params = {
+#         "epochs": epochs, 
+#         "num_epochs": num_epochs, 
+#         "learning_rate": learning_rate, 
+#         "momentum": momentum, 
+#         "loss": loss, 
+#         "hidden_size": hidden_size
+#     }
+#     experiment.log_parameters(hyper_params)
+
+#     model = ThreeLayerMLP(2, hidden_size, 3, n_layers)
+
+#     train_loss, test_loss = [], []
+#     data_train, data_test =  w1d4_tests.load_image(fname)    
+        
+#     for epoch in tqdm(range(n_epochs)):
+#         model = _train(model, data_train, lr, momentum)
+#         training_loss = evaluate(model, data_test).detach().numpy()
+#         train_loss.append(training_loss)
+#         test_loss.append(evaluate(model, data_test).detach().numpy())
+#         experiment.log_metric("training loss", training_loss, step=epoch)
+    
+#     return model

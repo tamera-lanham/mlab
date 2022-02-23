@@ -5,6 +5,7 @@
 .pipe_par_test_model_1
 ImageNet-ValidationSet.zip-16c5dd6a172ac59e0f27d4b698e5399ea9d48160.torrent
 OLD_BYO_Resnet.ipynb
+TEMP_CONFIG.gin
 basic_rl_template.ipynb
 distribute_file.sh
 gptj_arch.txt
@@ -4782,6 +4783,7 @@ days/w1d3/minitorch_template/venv/share/python-wheels/toml-0.10.0-py2.py3-none-a
 days/w1d3/minitorch_template/venv/share/python-wheels/urllib3-1.25.8-py2.py3-none-any.whl
 days/w1d3/minitorch_template/venv/share/python-wheels/webencodings-0.5.1-py2.py3-none-any.whl
 days/w1d3/minitorch_template/venv/share/python-wheels/wheel-0.34.2-py2.py3-none-any.whl
+days/w1d4/config.gin
 days/w1d4/marmot.jpg
 days/w1d4/w1d4_sol.py
 days/w1d4/w1d4_template.ipynb
@@ -4838,6 +4840,10 @@ days/w2d4/run.py
 days/w2d4/sentencepiece.json
 days/w2d4/shakespeare.txt
 days/w2d4/tokenizer.py
+days/w2d4/train.py
+days/w2d4/train_sandbox.ipynb
+days/w2d4/w2d4.gin
+days/w2d4/w2d4_template.ipynb
 days/w2d5/dataparallel.gin
 days/w2d5/dataparallel.py
 days/w2d5/gradient_compression.py

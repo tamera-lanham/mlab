@@ -1,12 +1,12 @@
 import hpsearch
 
 hpsearch.hpsearch(
-    "mlps_without_activations",
-    "days.w2d4.demo_train.train",
-    "demo_train.gin",
-    {"train.lr": [1e-3, 1e-4, 1e-5], "MyModel.hidden_size": [32, 64],"set_random_seed.seed":[0,1,2,3]},
+    "bert-classifier",
+    "days.w2d4.train_gin.main",
+    "params_gin.gin", #base_config
+    {"train_gin.lr": [1e-3, 1e-4, 1e-5], "BertClassifier.num_layers": [4, 8, 12, 16]}, #search_spec
     comet_key="HcNvTw9fQX8f7vaxHsmIEq7Z2",
-    local=True,
+    local=False,
 )
 # REPLACE COMET API KEY WITH YOUR OWN!
 # Simon's API key: BqQbt7OiPG0nJ1M3dtHQqB0Wk

@@ -89,9 +89,9 @@ class RRJobsConnection:
         self.onscrapes = {}
         self.launch_id_to_task_id = {}
 
-        # websocket.enableTrace(False)
+        websocket.enableTrace(True)
         self.ws = websocket.WebSocketApp(
-            f"wss://{API_URL}/ws-api",
+            f"wss://jobs.redwoodresearchcompute.com:10101/ws-api",
             on_message=self.on_message,
             on_error=self.on_error,
             on_close=self.on_close,

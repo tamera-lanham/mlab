@@ -1,0 +1,17 @@
+main.data_config = {
+    'batch_size': 32,
+    'n_epochs': 1
+}
+
+main.model_config = {
+    'num_layers': 12,
+    'num_heads': 12,
+    'dropout': 0.1,
+}
+
+main.training_config = {
+    'optimizer_config': {'lr': 1e-5},
+    'device': 'cuda'
+}
+
+main.save_model = True

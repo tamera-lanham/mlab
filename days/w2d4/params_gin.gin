@@ -1,0 +1,10 @@
+GetData.batch_size=32
+GetData.n_epochs = 1
+
+BertClassifier.num_layers = 12
+BertClassifier.num_heads = 12
+BertClassifier.dropout = 0.1
+
+train_gin.lr = 1e-5
+
+main.save_model = True

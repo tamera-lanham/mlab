@@ -333,7 +333,7 @@ def hpsearch(name, fn_path, base_config, search_spec, comet_key, local=True):
         print("LOCAL TRIAL RUN")
         for task_spec in task_specs:
             my_env = {"PARAMS": json.dumps(task_spec["parameters"]), **os.environ}
-            proc = subprocess.Popen(["python", "run_fn_with_config.py"], env=my_env)
+            proc = subprocess.Popen(["python", "/home/ubuntu/mlab/run_fn_with_config.py"], env=my_env)
             outs, errs = proc.communicate()
             assert proc.returncode == 0
         return
