@@ -12,10 +12,6 @@ import time
 import transformers
 from tqdm import tqdm
 
-import sys
-sys.path.append('/home/ubuntu/mlab/days')
-sys.path.append('/home/paperspace/mlab/days')
-import utils
 
 DEVICES=[0,1]
 
