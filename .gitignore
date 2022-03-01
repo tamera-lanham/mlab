@@ -12,3 +12,4 @@ infrastructure/.lambda_account.json
 launch.json
 env/
 *.pt
+*.jsonl
