@@ -10,6 +10,7 @@ import json
 from io import StringIO
 import time
 import transformers
+from tqdm import tqdm
 
 import sys
 sys.path.append('/home/ubuntu/mlab/days')
@@ -120,12 +121,10 @@ class DistributedDataLoader():
         if rank == 0:
             # 2. If in charge, then load all the training data
             self.corpus = import_lesswrong_corpus()
-            list_of_tensors = list(corpus_to_tensors(self.corpus, self.max_tokens))            
+            list_of_tensors = corpus_to_tensors(self.corpus, self.max_tokens)
             self.batches = list(to_batches(list_of_tensors, self.batch_size))
             self.n_batches = len(self.batches)
-            
-            print('I am rank 0, and I know that there are %d batches' % self.n_batches)
-            
+                
         else: 
             self.n_batches = 0
             
@@ -134,9 +133,7 @@ class DistributedDataLoader():
         n_batches_holder = t.Tensor([self.n_batches]).to(self.gpu)
         dist.broadcast(n_batches_holder, 0)
         self.n_batches = int(n_batches_holder)
-        
-        print('After broadcast: I am rank %d, and I know that there are %d batches' % (self.rank, self.n_batches))
-        
+                
         
     def __iter__(self): # -> t.tensor generator
         def generator():
@@ -172,14 +169,18 @@ def run(rank, size):
     optimizer = t.optim.Adam(gpt2.parameters())
     loss_func = t.nn.CrossEntropyLoss()
     
-    loss_vals, accs = [], []
-    running_loss = 0
+    train_losses, val_losses = [], []
     counter = 0
+    
     
     for minibatch in dataloader: # first 80% are train, rest are val 
         counter += 1
         train = minibatch[:math.floor(mini_batch_size*0.8),:] # will have shape (mini_batch_size, max_tokens)
         val = minibatch[math.floor(mini_batch_size*0.8):,:]
+        
+        print(rank, train)
+        print(rank, val)
+        break
         
         inputs, labels = train[:,:-1], train[:,1:]
         
@@ -193,8 +194,7 @@ def run(rank, size):
         labels_rearranged = einops.rearrange(labels, 'mb tokens -> (mb tokens)')
         
         loss = loss_func(outputs_rearranged, labels_rearranged)
-        running_loss += loss.detach()
-        loss_vals += [loss.detach()]
+        train_losses += [loss.detach()]
         loss.backward()
         
         # Shares the gradients and average it out
@@ -205,23 +205,25 @@ def run(rank, size):
         
         optimizer.step()
         
+        with t.no_grad():
+            val_inputs, val_labels = val[:,:-1], val[:,1:]
+            val_outputs = gpt2(val_inputs).logits
+            
+            val_outputs_rearranged = einops.rearrange(outputs, 'mb tokens vocab -> (mb tokens) vocab')
+            val_labels_rearranged = einops.rearrange(labels, 'mb tokens -> (mb tokens)')
+            val_loss = loss_func(val_outputs_rearranged, val_labels_rearranged)
+            val_losses.append(val_loss.detach())
+            
+            #data.set_postfix({'train_loss': float(train_losses[-1]), 'val_loss': float(val_losses[-1]), 'gpu usage': f'{mem_usage:.1f} GiB'})
+
+    print([float(x) for x in train_losses])
+    print([float(x) for x in val_losses])
+        
 # cd /home/ubuntu/mlab/days/w2d5/ && python run.py
         
-    print(loss_vals)
-#         if i % training_config['val_batches'] == 0:
-#             with t.no_grad():
 
-#                 test_targets, test_inputs = zip(*train_batch)
-#                 test_targets = t.Tensor(test_targets).to(device)
-#                 test_inputs = t.stack(test_inputs).to(device)
-
-#                 _, test_outputs = bert(test_inputs)
-#                 accs.append(float(acc(test_outputs, test_targets).cpu().detach()))
-#                 loss_vals.append(running_loss / training_config['val_batches'])
-#                 running_loss = 0.0 
-
-#                 data.set_postfix({'acc': sum(accs[-5:]) / min(len(accs), 5), 'loss': float(loss_vals[-1]), 'gpu usage': f'{mem_usage:.1f} GiB'})
-                
+    
+              
     # for param in model.parameters():
         # param.grad          
     # randt = t.randn(3,3)
