@@ -32,7 +32,7 @@ def tokenize_batch(batch, tokenizer, max_seq_len):
 
 def tokenize(batches, max_seq_len=512):
     tokenizer = transformers.AutoTokenizer.from_pretrained("EleutherAI/gpt-j-6B")
-    tokenizer.add_special_tokens({'pad_token': '[PAD]'})
+    tokenizer.pad_token = tokenizer.eos_token
     return [tokenize_batch(batch, tokenizer, max_seq_len) for batch in tqdm(batches)]
 
 def convert_to_int(batches):
@@ -65,7 +65,7 @@ def imdb_data(batch_size=32, max_seq_len=512):
 
     return tokenized_train_batches, tokenized_test_batches
 
-def fake_imdb_data(batch_size=32, n_batches=10, max_seq_len=512, vocab_size=50257):
+def fake_imdb_data(batch_size=32, max_seq_len=512, n_batches=10, vocab_size=50257):
     
     def sample():
         sentiment = int(t.randint(0, 2, (1,)))
@@ -78,4 +78,9 @@ def fake_imdb_data(batch_size=32, n_batches=10, max_seq_len=512, vocab_size=5025
     return train_batches, test_batches
     
     
+def batch_to_microbatches(batch, n_microbatches, microbatch_size): # batch is list of [t.tensor()] 
+    if not len(batch) ==  n_microbatches * microbatch_size: raise ValueError('Bad batch size :(')
+    return [t.stack(batch[i*microbatch_size:(i+1)*microbatch_size]) for i in range(n_microbatches)]
+            
+            
 mem = lambda rank: t.cuda.memory_allocated('cuda:%d' % rank) / 2**(30) 
