@@ -68,6 +68,7 @@ class ProcessInfo: # Class just to hold info for one process
 def prepare_process(rank, size, all_groups): # Loads the model and gets the groups for a process
     
     gpu = 'cuda:%d' % rank
+    gpu = 'cpu'
     model = load_gpt_block(rank).to(gpu)
     
     next_group = all_groups[rank] if (rank != size-1) else None
