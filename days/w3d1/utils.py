@@ -30,9 +30,7 @@ def tokenize_batch(batch, tokenizer, max_seq_len):
     outputs = tokenizer(list(texts), return_tensors="pt", padding='longest', max_length=max_seq_len, truncation=True)
     return list(zip(sentiments, outputs['input_ids']))
 
-def tokenize(batches, max_seq_len=512):
-    tokenizer = transformers.AutoTokenizer.from_pretrained("EleutherAI/gpt-j-6B")
-    tokenizer.pad_token = tokenizer.eos_token
+def tokenize(batches, tokenizer, max_seq_len=512):
     return [tokenize_batch(batch, tokenizer, max_seq_len) for batch in tqdm(batches)]
 
 def convert_to_int(batches):
@@ -45,12 +43,33 @@ def convert_to_int(batches):
             for batch in batches
             ]
 
+def get_last_nonpadding_index_single(tokenized_text, pad_token_id): # tokenized_text is a tensor of ints with shape (seq_len,)
+    
+    padding_positions = (tokenized_text == pad_token_id).nonzero()
+    
+    if not padding_positions.numel():
+        return tokenized_text.shape[-1]
+    
+    return padding_positions[0][0] - 1
+
+def get_last_nonpadding_index(batches, tokenizer):
+    pad_token_id = tokenizer(tokenizer.pad_token).input_ids[0]
+    
+    return [
+            [(sentiment, text, get_last_nonpadding_index_single(text, pad_token_id)) for sentiment, text in batch] 
+            for batch in batches
+            ]
+
 def preprocess(data, batch_size, max_seq_len=512):
+    
+    tokenizer = transformers.AutoTokenizer.from_pretrained("EleutherAI/gpt-j-6B")
+    tokenizer.pad_token = tokenizer.eos_token
     
     batched_data = batch(data, batch_size)
     random.shuffle(batched_data)
-    tokenized = tokenize(batched_data, max_seq_len)
-    preprocessed = convert_to_int(tokenized)
+    tokenized = tokenize(batched_data, tokenizer, max_seq_len)
+    sentiment_converted = convert_to_int(tokenized)
+    preprocessed = get_last_nonpadding_index(sentiment_converted, tokenizer)
     
     return preprocessed
 
@@ -67,10 +86,13 @@ def imdb_data(batch_size=32, max_seq_len=512):
 
 def fake_imdb_data(batch_size=32, max_seq_len=512, n_batches=10, vocab_size=50257):
     
-    def sample():
+    def sample(mean_n_tokens = 512, std_dev = 100, pad_token_id = 50256):
+        
+        n_real_tokens = min(int(((t.randn(1)*std_dev) + mean_n_tokens)), 512)
         sentiment = int(t.randint(0, 2, (1,)))
         tokens = t.randint(0, vocab_size, (max_seq_len,)).long()
-        return sentiment, tokens
+        tokens[n_real_tokens:] = pad_token_id
+        return sentiment, tokens, n_real_tokens
     
     train_batches = [[sample() for _ in range(batch_size)] for _ in range(n_batches)]
     test_batches = [[sample() for _ in range(batch_size)] for _ in range(n_batches)]
