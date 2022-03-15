@@ -1,9 +1,9 @@
 jupyterlab==3.2.5
-torch
+torch==1.10.2
 torchtyping
 einops
 torchvision
-torchtext
+torchtext==0.11.2
 numpy
 transformers
 sentencepiece
