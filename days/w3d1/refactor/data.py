@@ -1,51 +1,8 @@
 import random
+import torch as t
 import torchtext
 from tqdm import tqdm
 import transformers
-import pdb
-import torch as t
-
-
-#################################
-
-class BlockWrapper(t.nn.Module):
-    def __init__(self, gpt_block):
-        super().__init__()
-        self.model = gpt_block
-    
-    def forward(self, inputs):
-        activations, *_ = self.model(inputs)
-        return activations
-    
-def split_model(model, n_gpus):
-    starts = t.linspace(0, 28, n_gpus + 1).int()[:-1] # Starting index of each section
-    ends = t.linspace(0, 28, n_gpus + 1).int()[1:]
-    blocks = [BlockWrapper(block) for block in model.transformer.h]
-    gpt_block_sections = [t.nn.Sequential(*blocks[start:end]) for start, end in zip(starts, ends)]
-
-    first = t.nn.Sequential(
-        model.transformer.wte,
-        model.transformer.drop,
-        gpt_block_sections[0]
-    )
-
-    last = t.nn.Sequential(
-        gpt_block_sections[-1],
-        model.transformer.ln_f,
-        model.score
-    )
-
-    models = [first] + gpt_block_sections[1:-1] + [last]
-    return models
-
-
-def split_model_and_save(model, n_parts, filename_pattern = 'gpt-j-%d.pt'):
-    models = split_model(model, n_parts)
-    for i, model in enumerate(models):
-        t.save(model, filename_pattern % i)
-
-#################################
-
 
 def batch(data, batch_size):
     batches, batch = [], []
@@ -106,6 +63,7 @@ def preprocess(data, batch_size, max_seq_len=512):
     
     return preprocessed
 
+
 def imdb_data(batch_size=32, max_seq_len=512):
     data_train, data_test = torchtext.datasets.IMDB(root='.data', split=('train', 'test'))
     
@@ -116,6 +74,7 @@ def imdb_data(batch_size=32, max_seq_len=512):
     tokenized_test_batches = preprocess(data_test_list, batch_size, max_seq_len)
 
     return tokenized_train_batches, tokenized_test_batches
+
 
 def fake_imdb_data(batch_size=32, max_seq_len=512, n_batches=10, vocab_size=50257):
     
@@ -136,6 +95,3 @@ def fake_imdb_data(batch_size=32, max_seq_len=512, n_batches=10, vocab_size=5025
 def batch_to_microbatches(batch, n_microbatches, microbatch_size): # batch is list of [t.tensor()] 
     if not len(batch) ==  n_microbatches * microbatch_size: raise ValueError('Bad batch size :(')
     return [t.stack(batch[i*microbatch_size:(i+1)*microbatch_size]) for i in range(n_microbatches)]
-            
-            
-mem = lambda rank: t.cuda.memory_allocated('cuda:%d' % rank) / 2**(30) 
