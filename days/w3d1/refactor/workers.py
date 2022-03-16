@@ -1,11 +1,12 @@
 import os
+import torch as t
 import torch.distributed as dist
 import torch.multiprocessing as mp
 from torch.multiprocessing import Process
 
-class WorkerInfo:
+class Worker:
     
-    def __init__(self, rank, n_workers, groups, use_gpu):
+    def __init__(self, rank, n_workers, use_gpu):
         self.rank = rank
         self.device = f'cuda:{rank}' if use_gpu else 'cpu'
         
@@ -14,22 +15,54 @@ class WorkerInfo:
         elif rank == (n_workers - 1): self.last = True
         else: self.middle = True
         
-        self.groups = groups
-        self.prev = self.groups[(rank-1, rank)] if (rank != 0) else None
-        self.next = self.groups[(rank, rank+1)] if (rank != n_workers-1) else None
+        groups = {
+            (a, b): dist.new_group([a, b])
+            for a in range(n_workers) for b in range(n_workers)
+            if a < b
+        }
+        self.groups = {**{(b, a): groups[(a,b)] for a,b in groups.keys()}, **groups}
+
+        self.prev = rank - 1 if (rank != 0) else None
+        self.next = rank + 1 if (rank != n_workers-1) else None
         
         self.model = None
         self.tensors = []
+        
+    def send(self, data, to_rank):
+        group = self.groups[(self.rank, to_rank)]
+        
+        # First send the shape
+        shape = t.tensor(data.shape)
+        shape_holder = -t.ones((8,), dtype=t.int32)
+        shape_holder[-len(shape):] = shape
+        dist.broadcast(shape_holder, self.rank, group)
+        
+        # Then send the data
+        dist.broadcast(data, self.rank, group)
+        
+        
+    def recv(self, from_rank, dtype=t.float32):
+        group = self.groups[(self.rank, from_rank)]
+        
+        # First get the shape
+        shape_holder = -t.ones((8,), dtype=t.int32)
+        dist.broadcast(shape_holder, from_rank, group)
+        shape = shape_holder[shape_holder != -1].tolist()
+        
+        # Then get the data
+        data = t.zeros(shape, dtype=dtype, device=self.device)
+        dist.broadcast(data, from_rank, group)
+        
+        return data
 
+    
+# This function really should be in Workers, but dist doesn't like that :(
 def _init_process(rank, n_workers, use_gpu, backend, func):
     dist.init_process_group(backend, rank=rank, world_size=n_workers)
 
-    groups = {(x, x+1): dist.new_group([x, x+1]) for x in range(n_workers-1)}
-    groups[(0, n_workers - 1)] = dist.new_group([0, n_workers - 1])
+    worker = Worker(rank, n_workers, use_gpu)
 
-    worker_info = WorkerInfo(rank, n_workers, groups, use_gpu)
-
-    func(worker_info)
+    func(worker)
 
 class Workers:
     
@@ -37,11 +70,8 @@ class Workers:
         self.n_workers = n_workers
         self.backend = backend
         self.use_gpu = use_gpu
-        
         self.processes = []
-        self.groups = {}
         
-        self.workers = [None] * self.n_workers
         
     def start(self, func):
                     
@@ -60,8 +90,8 @@ class Workers:
             p.join()    
     
     
-def create_workers(n_workers, func, backend = 'gloo'):
-    workers = Workers(n_workers, backend)
+def create_workers(n_workers, func, use_gpu=True, backend = 'gloo'):
+    workers = Workers(n_workers, backend, use_gpu)
     workers.start(func)
     return workers.workers
     
