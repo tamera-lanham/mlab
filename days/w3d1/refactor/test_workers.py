@@ -3,39 +3,31 @@ import workers
 
 # conda activate ~/Developer/mlab/env && cd ~/Developer/mlab/days/w3d1/refactor && python test_workers.py
 
-n_workers = 4
 def func(worker):
-    print(f'I am worker {worker.rank}. First: {worker.first}, middle: {worker.middle}, last {worker.last}')
     
     dtype = t.float64
     
-    if worker.rank == 0:
+    if worker.first:
         shape = t.randint(1, 10, (5,)).tolist()
         data = t.randn(shape, dtype=dtype)
         
         print(worker.rank, data.shape, data.dtype)
         
-        worker.send(data, 1)
-        worker.send(data, 2)
+        worker.send(data, worker.ranks[-1])
+        worker.send(data, worker.next)
         
-    if worker.rank == 1:
-        data = worker.recv(0, dtype)
+    if worker.middle:
+        data = worker.recv(worker.prev, dtype)
         print(worker.rank, data.shape, data.dtype)
-        worker.send(data, 3)
+        worker.send(data, worker.next)
         
-    if worker.rank == 2:
-        data = worker.recv(0, dtype)
-        print(worker.rank, data.shape, data.dtype)
-        worker.send(data, 3)
+    if worker.last:
+        data_0 = worker.recv(0, dtype)
+        data_1 = worker.recv(worker.prev, dtype)
         
-    if worker.rank == 3:
-        data_1 = worker.recv(1, dtype)
-        data_2 = worker.recv(2, dtype)
-        
-        assert data_1.equal(data_2)
+        assert data_0.equal(data_1)
         print('Test passed!')
         
-        
-    
+
 if __name__=="__main__":
-    workers.create_workers(4, func, False)
+    workers.create_workers(func, n_workers = 8, use_gpu = False)

@@ -8,6 +8,7 @@ class Worker:
     
     def __init__(self, rank, n_workers, use_gpu):
         self.rank = rank
+        self.ranks = list(range(n_workers))
         self.device = f'cuda:{rank}' if use_gpu else 'cpu'
         
         self.first, self.middle, self.last = False, False, False
@@ -56,42 +57,26 @@ class Worker:
         return data
 
     
-# This function really should be in Workers, but dist doesn't like that :(
-def _init_process(rank, n_workers, use_gpu, backend, func):
+def _init_process(func, rank, n_workers, use_gpu, backend):
     dist.init_process_group(backend, rank=rank, world_size=n_workers)
-
     worker = Worker(rank, n_workers, use_gpu)
-
     func(worker)
 
-class Workers:
-    
-    def __init__(self, n_workers, backend, use_gpu=True):
-        self.n_workers = n_workers
-        self.backend = backend
-        self.use_gpu = use_gpu
-        self.processes = []
-        
-        
-    def start(self, func):
+def create_workers(func, n_workers, use_gpu=True, backend = 'gloo'):
                     
-        print('Starting %d workers...' % self.n_workers)
-        
-        os.environ['MASTER_ADDR'] = '127.0.0.1'
-        os.environ['MASTER_PORT'] = '29500'
-        
-        mp.set_start_method('spawn', force=True)
-        
-        for rank in range(self.n_workers):
-            p = mp.Process(target=_init_process, args=(rank, self.n_workers, self.use_gpu, self.backend, func))
-            p.start()
-            self.processes.append(p)
-        for p in self.processes:
-            p.join()    
-    
-    
-def create_workers(n_workers, func, use_gpu=True, backend = 'gloo'):
-    workers = Workers(n_workers, backend, use_gpu)
-    workers.start(func)
-    return workers.workers
+    print('Starting %d workers...' % n_workers)
+
+    os.environ['MASTER_ADDR'] = '127.0.0.1'
+    os.environ['MASTER_PORT'] = '29500'
+
+    mp.set_start_method('spawn', force=True)
+
+    processes = []
+    for rank in range(n_workers):
+        p = mp.Process(target=_init_process, args=(func, rank, n_workers, use_gpu, backend))
+        p.start()
+        processes.append(p)
+    for p in processes:
+        p.join()    
+
     
