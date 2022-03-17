@@ -1,5 +1,7 @@
-import torch as t
 import dataclasses
+import torch as t
+from tqdm import tqdm
+
 import data
 import gpt_model
 import mlp_model
@@ -28,7 +30,6 @@ def get_n_batches(w: workers.Worker):
 def run(worker):
     # Load the model
     worker.model = mlp_model.load_model(worker.rank).to(worker.device)
-    print(worker.rank, worker.model)
     
     # Load the data
     if worker.first: 
@@ -40,20 +41,27 @@ def run(worker):
         
     batch_size = worker.hyps.n_microbatches_per_batch
     
-    for epoch in range(worker.hyps.n_epochs):
-        for batch_i in range(0, n_microbatches, batch_size):
-                
-            for microbatch_i in range(batch_i, batch_i + batch_size): 
-                training.send_targets(worker, microbatch_i)
-                #training.forward_pass(worker, microbatch_i)
+    if worker.last: pbar = tqdm(total=int(worker.hyps.n_epochs * n_microbatches))
 
-            for microbatch_i in range(batch_i, batch_i + batch_size):
+    for epoch in range(worker.hyps.n_epochs):
+
+        for batch_i in range(0, n_microbatches, batch_size):
+            
+            last_batch_i = min(batch_i + batch_size, n_microbatches-1)
+
+            for microbatch_i in range(batch_i, last_batch_i): 
                 training.forward_pass(worker, microbatch_i)
+
+            for microbatch_i in range(batch_i, last_batch_i):
+                training.send_targets(worker, microbatch_i)
                 loss = training.calc_loss(worker, microbatch_i)
                 training.backward_pass(worker, microbatch_i, optimizer, loss)
 
-            break
-        break
+                if worker.last: 
+                    pbar.update(1)
+                    pbar.set_postfix({'loss': float(loss)})
+
+    if worker.last: pbar.close()
 
 
 def main():
@@ -63,10 +71,10 @@ def main():
     
     hyps = Hyperparameters(
         use_gpt = False, # If false, use MLP
-        seq_len = 128,
-        n_microbatches = 1000, # Only applies to fake data
-        microbatch_size = 5,
-        n_microbatches_per_batch = 5
+        seq_len = 32,
+        n_microbatches = 250, # Only applies to fake data
+        microbatch_size = 256,
+        n_microbatches_per_batch = 8
     )
     
     if hyps.use_gpt:

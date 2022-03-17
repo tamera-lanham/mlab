@@ -1,6 +1,7 @@
 import torch as t
 import mlp_model
 import gpt_model
+import time
 
 def forward_pass(worker, microbatch_i, train=True):
     
@@ -17,7 +18,6 @@ def forward_pass(worker, microbatch_i, train=True):
     worker.inputs[microbatch_i] = inputs
     
     # Run the forward pass 
-    print(worker.rank, 'Forward pass, microbatch %d' % microbatch_i)
     outputs = worker.model(inputs)
     
     worker.outputs[microbatch_i] = outputs
@@ -39,15 +39,17 @@ def send_targets(worker, microbatch_i):
 
 def calc_loss(worker, microbatch_i):
 
-    if not worker.last: return # All the non-last processes can leave now
-
+    if not worker.last: return # Only the last process calculates loss
+    
     targets = worker.data[('targets', microbatch_i)]
     last_token_indices = worker.data[('last_token_indices', microbatch_i)]
-    outputs = worker.outputs[microbatch_i]
+          
+    # Hacky fix for the problem described in reproduce-bug.ipynb
+    outputs = worker.model(worker.inputs[microbatch_i])
+    # outputs = worker.outputs[microbatch_i]
         
     if worker.hyps.use_gpt: 
         raise NotImplementedError()
-        
     else: 
         return mlp_model.calc_loss(outputs, targets)
 
@@ -57,25 +59,25 @@ def backward_pass(worker, microbatch_i, optimizer, loss):
     optimizer.zero_grad()
     
     if worker.last:
-        print(worker.rank, 'Backward pass, microbatch %d' % microbatch_i)
         loss.backward()
+        
+    else:
+        # Hacky fix for the problem described in reproduce-bug.ipynb
+        outputs = worker.model(worker.inputs[microbatch_i])
+        #outputs = worker.outputs[microbatch_i]
+        
+        output_grad = worker.recv(worker.next)
+        outputs.backward(output_grad)
+        
+    if not worker.first:
         input_grad = worker.inputs[microbatch_i].grad
         worker.send(input_grad, worker.prev)
+    else:
+        time.sleep(1)
         
-    if worker.middle:
-        output_grad = worker.recv(worker.next)
-        print(worker.rank, 'Backward pass, microbatch %d' % microbatch_i)
-        worker.outputs[microbatch_i].backward(output_grad)
-        input_grad = worker.inputs[microbatch_i].grad
-        worker.send(input_grad, worker.prev)
-        
-        
-    if worker.first:
-        output_grad = worker.recv(worker.next)
-        print(worker.rank, 'Backward pass, microbatch %d' % microbatch_i)
-        worker.outputs[microbatch_i].backward(output_grad)
         
     optimizer.step()
-    #del worker.inputs[microbatch_i], worker.outputs[microbatch_i]
+    
+    del worker.inputs[microbatch_i], worker.outputs[microbatch_i]
     
     
