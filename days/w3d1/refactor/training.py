@@ -33,16 +33,20 @@ def send_targets(worker, microbatch_i):
         _, targets, last_token_indices = worker.data['train'][microbatch_i]
         worker.send(targets, worker.ranks[-1])
         worker.send(last_token_indices, worker.ranks[-1])
+    
+    if worker.last:
+        worker.data[('targets', microbatch_i)] = worker.recv(0, t.int32)
+        worker.data[('last_token_indices', microbatch_i)] = worker.recv(0, t.int32)
 
 def calc_loss(worker, microbatch_i):
 
     if not worker.last: return # All the non-last processes can leave now
 
-    targets = worker.recv(0, t.int32)
-    last_token_indices = worker.recv(0, t.int32)
+    targets = worker.data[('targets', microbatch_i)]
+    last_token_indices = worker.data[('last_token_indices', microbatch_i)]
     outputs = worker.outputs[microbatch_i]
-    print('outputs', worker.rank, outputs._version)
     
+    print('outputs', worker.rank, outputs._version)
     
     if worker.hyps.use_gpt: 
         raise NotImplementedError()
