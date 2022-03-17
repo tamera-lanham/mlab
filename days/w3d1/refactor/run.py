@@ -42,18 +42,15 @@ def run(worker):
     
     for epoch in range(worker.hyps.n_epochs):
         for batch_i in range(0, n_microbatches, batch_size):
-            
                 
-            with t.autograd.set_detect_anomaly(True):
-                
-                for microbatch_i in range(batch_i, batch_i + batch_size): 
-                    training.send_targets(worker, microbatch_i)
-                    training.forward_pass(worker, microbatch_i)
-                        
-                for microbatch_i in range(batch_i, batch_i + batch_size):
-                    training.forward_pass(worker, microbatch_i)
-                    loss = training.calc_loss(worker, microbatch_i)
-                    training.backward_pass(worker, microbatch_i, optimizer, loss)
+            for microbatch_i in range(batch_i, batch_i + batch_size): 
+                training.send_targets(worker, microbatch_i)
+                #training.forward_pass(worker, microbatch_i)
+
+            for microbatch_i in range(batch_i, batch_i + batch_size):
+                training.forward_pass(worker, microbatch_i)
+                loss = training.calc_loss(worker, microbatch_i)
+                training.backward_pass(worker, microbatch_i, optimizer, loss)
 
             break
         break

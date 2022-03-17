@@ -13,7 +13,6 @@ def forward_pass(worker, microbatch_i, train=True):
     else: 
         inputs = worker.recv(worker.prev)
         inputs.requires_grad = True
-        print('input', worker.rank, inputs._version)
     
     worker.inputs[microbatch_i] = inputs
     
@@ -45,9 +44,7 @@ def calc_loss(worker, microbatch_i):
     targets = worker.data[('targets', microbatch_i)]
     last_token_indices = worker.data[('last_token_indices', microbatch_i)]
     outputs = worker.outputs[microbatch_i]
-    
-    print('outputs', worker.rank, outputs._version)
-    
+        
     if worker.hyps.use_gpt: 
         raise NotImplementedError()
         
@@ -61,21 +58,7 @@ def backward_pass(worker, microbatch_i, optimizer, loss):
     
     if worker.last:
         print(worker.rank, 'Backward pass, microbatch %d' % microbatch_i)
-        print('loss and inputs versions:', loss._version, worker.inputs[microbatch_i]._version)
-        print('loss and inputs grad:', loss.grad, worker.inputs[microbatch_i].grad)
-        print('loss and inputs is_leaf:', loss.is_leaf, worker.inputs[microbatch_i].is_leaf)
-        
-        
-        d = loss
-        print(d.grad_fn)
-        print(d.grad_fn.next_functions)
-        print(d.grad_fn.next_functions[0][0].next_functions)
-        print(d.grad_fn.next_functions[0][0].next_functions[0][0].next_functions)
-        #print(d.grad_fn.next_functions[0][0].next_functions[0][0].next_functions[0][0].next_functions)
-        
         loss.backward()
-        print('loss and inputs grad 2:', loss.grad, worker.inputs[microbatch_i].grad)
-        
         input_grad = worker.inputs[microbatch_i].grad
         worker.send(input_grad, worker.prev)
         
